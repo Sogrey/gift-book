@@ -112,13 +112,8 @@ function onAmountEnter() {
   }
 }
 
-/** 渠道数字快捷键（在任意录入输入框内生效）；Esc 关闭重名警示 */
+/** Esc 关闭重名警示 */
 function onEntryKeydown(e: KeyboardEvent) {
-  const hit = CHANNELS.find((c) => c.hotkey === e.key)
-  if (hit) {
-    e.preventDefault()
-    channel.value = hit.key
-  }
   if (e.key === 'Escape' && pending.value) {
     pending.value = null
   }
@@ -130,7 +125,7 @@ function onEntryKeydown(e: KeyboardEvent) {
   <div class="gb-card p-4 sm:p-5">
     <div class="mb-3 flex items-center justify-between">
       <h2 class="gb-title-kai text-lg font-bold">快速记账</h2>
-      <span class="hidden text-xs text-ink-soft sm:block">姓名 Enter → 金额 Enter → 完成；数字键 1-4 切渠道</span>
+      <span class="hidden text-xs text-ink-soft sm:block">姓名 Enter → 金额 Enter → 完成</span>
     </div>
 
     <div class="grid gap-3 sm:grid-cols-[1.2fr_1fr_auto_auto]">
@@ -171,7 +166,6 @@ function onEntryKeydown(e: KeyboardEvent) {
             :key="c.key"
             class="gb-btn px-2.5 py-[7px] text-xs"
             :class="channel === c.key ? 'gb-btn-primary' : 'gb-btn-ghost'"
-            :title="`快捷键 ${c.hotkey}`"
             @click="channel = c.key"
           >
             {{ c.label }}

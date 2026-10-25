@@ -1,11 +1,11 @@
 /** 礼金收取渠道 */
 export type Channel = 'wechat' | 'alipay' | 'cash' | 'other'
 
-export const CHANNELS: { key: Channel; label: string; hotkey: string }[] = [
-  { key: 'wechat', label: '微信', hotkey: '1' },
-  { key: 'alipay', label: '支付宝', hotkey: '2' },
-  { key: 'cash', label: '现金', hotkey: '3' },
-  { key: 'other', label: '其他', hotkey: '4' },
+export const CHANNELS: { key: Channel; label: string }[] = [
+  { key: 'wechat', label: '微信' },
+  { key: 'alipay', label: '支付宝' },
+  { key: 'cash', label: '现金' },
+  { key: 'other', label: '其他' },
 ]
 
 /** 事项类型：红事 / 白事（决定主题氛围） */
