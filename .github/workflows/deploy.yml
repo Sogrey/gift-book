@@ -38,12 +38,10 @@ jobs:
       - name: 构建（含类型检查）
         run: npm run build
 
-      - name: 配置 GitHub Pages
-        uses: actions/configure-pages@v6
-        with:
-          # v6 默认不自动开通 Pages，显式开启自动创建站点
-          enablement: true
-
+      # 注：GitHub 禁止 GITHUB_TOKEN 首次创建 Pages 站点（Resource not accessible
+      # by integration），需在仓库 Settings → Pages 将 Source 设为 GitHub Actions
+      #（仅一次）。本项目为相对 base + hash 路由，不依赖 configure-pages，
+      # 故直接上传产物，开通后即可全自动部署。
       - name: 上传构建产物
         uses: actions/upload-pages-artifact@v5
         with:

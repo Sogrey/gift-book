@@ -40,7 +40,10 @@ npm run preview # 本地预览构建产物
 1. **构建与校验**：`npm ci` → `npm run build`（vue-tsc 严格类型检查，类型错误直接阻断部署）
 2. **部署**：产物自动发布到 GitHub Pages → https://sogrey.github.io/gift-book/
 
-首次运行会自动开通 Pages（依赖 workflow 中的 `pages: write` + `id-token: write` 权限）；若需手动触发，在 Actions 页面选择该 workflow 点 **Run workflow**；新推送会自动取消进行中的旧部署（concurrency 控制）。
+> **首次开通（仅需一次）**：GitHub 安全策略禁止 Actions 的 GITHUB_TOKEN 首次创建 Pages 站点，
+> 需手动开通一次：仓库 **Settings → Pages → Build and deployment → Source 选 `GitHub Actions`** → Save。
+> 开通后无需任何其他操作，push main 即全自动部署；如需手动触发，在 Actions 页面点 **Run workflow**；
+> 新推送会自动取消进行中的旧部署（concurrency 控制）。
 
 ## 使用流程
 
