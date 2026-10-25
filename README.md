@@ -1,7 +1,12 @@
 # 电子礼簿 gift-book-vue
 
+[![CI/CD](https://github.com/Sogrey/gift-book/actions/workflows/deploy.yml/badge.svg)](https://github.com/Sogrey/gift-book/actions/workflows/deploy.yml)
+[![Deployed](https://img.shields.io/badge/GitHub-Pages-brightgreen)](https://sogrey.github.io/gift-book/)
+
 > 纯本地、零后端、数据加密的红白喜事礼金管理系统
 > Vue 3 + TypeScript + Vite + Pinia + Tailwind CSS 4
+>
+> **在线体验**：https://sogrey.github.io/gift-book/ （数据仍仅存于你自己浏览器的 localStorage，服务端不经手任何数据）
 
 无论是儿女结婚的喜宴，还是亲友离世的白事，礼金记账都绕不开。传统手写礼簿考验书写速度与细心程度，还有"记重了、算错了、丢了账本"的风险。本项目提供一个**拔网线也能用**的现代化礼簿方案：数据 100% 存储在本机浏览器、AES-256 加密落库，隐私不外泄。
 
@@ -14,7 +19,7 @@
 - **传统竖排 PDF 礼簿**：A4 横向仿古版式，每页 12 格竖排——毛笔楷书姓名 + 「贺礼」题字 + 中文大写礼金 + 数字金额；含封面、渠道总计页、备注附录、记账人落款
 - **Excel 明细导出**：8 列结构 + 合计行，即存即用
 - **加密备份恢复**：一键导出 `.giftbook.json`（密文），跨设备全量恢复
-- **副屏投影**：独立页签实时投射到外接屏幕——最新礼金大字动画 + 滚动列表 + 微信/支付宝收款码 + 自定义公告；支持隐私模式（非最新记录姓名打码、金额隐藏）；基于 BroadcastChannel + storage 双通道，主屏关闭不影响副屏打开方式
+- **副屏投影**：独立页签实时投射到外接屏幕——仿古竖排礼簿格布局（毛笔姓名 + 「贺礼」题字 + 大写金额竖排），新礼金自动滚动跟随；支持微信/支付宝收款码、自定义公告与隐私模式（非最新记录姓名打码、金额隐藏）；基于 BroadcastChannel + storage 双通道，主屏关闭不影响副屏打开方式
 - **红白双主题**：喜事"喜庆红"、白事"肃穆灰"，跟随事项类型自动切换
 - **专业统计**：总额大写、渠道分布、金额区间直方图、礼金 Top 榜
 - **零门槛部署**：纯静态文件，`npm run build` 后扔到任意静态服务器即可；不联网也能跑
@@ -27,6 +32,15 @@ npm run dev     # 开发：http://localhost:5173
 npm run build   # 构建：dist/ 可部署到 GitHub Pages / Vercel / Nginx / file:// 双击
 npm run preview # 本地预览构建产物
 ```
+
+## CI/CD 自动部署
+
+推送到 `main` 分支即自动触发 [GitHub Actions](.github/workflows/deploy.yml)：
+
+1. **构建与校验**：`npm ci` → `npm run build`（vue-tsc 严格类型检查，类型错误直接阻断部署）
+2. **部署**：产物自动发布到 GitHub Pages → https://sogrey.github.io/gift-book/
+
+首次运行会自动开通 Pages（依赖 workflow 中的 `pages: write` + `id-token: write` 权限）；若需手动触发，在 Actions 页面选择该 workflow 点 **Run workflow**；新推送会自动取消进行中的旧部署（concurrency 控制）。
 
 ## 使用流程
 

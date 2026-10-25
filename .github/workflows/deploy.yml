@@ -1,0 +1,59 @@
+name: CI/CD · 构建 & 部署 GitHub Pages
+
+# 推送 main 或手动触发时：类型检查 + 构建 + 自动部署到 GitHub Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只保留一次部署，新推送自动取消旧任务
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: 构建与校验
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # runner 在海外：覆盖 .npmrc 的国内源，走官方源更快更稳
+      - name: 安装依赖
+        run: npm ci --registry=https://registry.npmjs.org
+
+      # vue-tsc 类型检查 + vite build，类型不过不部署
+      - name: 构建（含类型检查）
+        run: npm run build
+
+      - name: 配置 GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上传构建产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: 部署
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
