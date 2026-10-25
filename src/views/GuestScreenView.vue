@@ -1,6 +1,7 @@
 <script setup lang="ts">
-/** 副屏展示页：只接收主屏广播（不持有密钥、不解密数据），适合宴会现场外接大屏 */
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+/** 副屏展示页：仿古竖排礼簿格 —— 只接收主屏广播（不持有密钥、不解密数据），
+ *  适合宴会现场外接大屏：每笔礼金一格，姓名/贺礼/大写金额竖排，新格自动滚动跟随。 */
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import type { GuestBroadcast } from '@/types'
 import { bus } from '@/lib/bus'
@@ -11,6 +12,7 @@ const eventId = computed(() => String(route.params.id))
 
 const state = ref<GuestBroadcast | null>(null)
 const fullscreenHintVisible = ref(true)
+const bookEl = ref<HTMLElement | null>(null)
 
 let dispose: (() => void) | null = null
 
@@ -19,7 +21,6 @@ onMounted(() => {
     if (msg?.eventId !== eventId.value) return
     state.value = msg
   })
-  // 问好：请求主屏立即推送全量快照
   bus.emit('ledger.hello', { eventId: eventId.value })
   setTimeout(() => (fullscreenHintVisible.value = false), 6000)
 })
@@ -35,10 +36,28 @@ watch(
 )
 
 const isReady = computed(() => !!state.value?.event)
-const latest = computed(() => state.value?.latest ?? null)
 const snapshot = computed(() => state.value?.snapshot)
 const screenCfg = computed(() => state.value?.screen)
 const isPrivacy = computed(() => !!screenCfg.value?.privacy)
+
+/** 时间顺序（旧→新），最新在右，像实时续写的礼簿 */
+const bookRecords = computed(() => [...(snapshot.value?.records ?? [])].reverse())
+const latestTime = computed(() => snapshot.value?.records?.[0]?.time ?? 0)
+
+/** 传统礼簿习惯：两字姓名中间加全角空格 */
+function displayName(name: string): string {
+  return name.length === 2 ? `${name[0]}\u3000${name[1]}` : name
+}
+
+// 新格子出现 → 平滑滚动跟随到最新一格
+watch(
+  () => latestTime.value,
+  async () => {
+    await nextTick()
+    const latest = bookEl.value?.querySelector('[data-latest="true"]')
+    latest?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+  },
+)
 
 function toggleFullscreen() {
   if (document.fullscreenElement) {
@@ -54,7 +73,7 @@ function onKeydown(e: KeyboardEvent) {
     toggleFullscreen()
   }
 }
-window.addEventListener('keydown', onKeydown, { once: false })
+window.addEventListener('keydown', onKeydown)
 onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
@@ -95,45 +114,44 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
       <template v-else>
         <!-- 标题栏 -->
-        <div class="shrink-0 border-b border-line/70 bg-surface/60 px-8 pt-6 pb-3 text-center">
-          <h1 class="gb-title-kai text-4xl font-bold tracking-[0.35em] text-primary">
-            {{ state!.event!.name }}
-          </h1>
-          <div class="mt-2 flex items-center justify-center gap-4 text-sm text-ink-soft">
-            <span>累计 {{ snapshot!.totalCount }} 笔</span>
-            <span class="font-num font-semibold text-ink">合计 {{ snapshot!.totalAmountText }}</span>
+        <div class="shrink-0 border-b-2 border-line/70 bg-surface/60 px-8 pt-4 pb-2 text-center">
+          <div class="flex items-baseline justify-center gap-5">
+            <h1 class="gb-title-kai text-3xl font-bold tracking-[0.35em] text-primary">
+              {{ state!.event!.name }}
+            </h1>
+            <span class="text-sm text-ink-soft">
+              累计 <b class="font-num text-ink">{{ snapshot!.totalCount }}</b> 笔
+            </span>
+            <span class="font-num text-sm font-semibold text-ink">合计 {{ snapshot!.totalAmountText }}</span>
             <span v-if="isPrivacy" class="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
               隐私模式
             </span>
           </div>
         </div>
 
-        <!-- 最新一笔大字 -->
-        <div v-if="latest" class="flex flex-1 items-center justify-center overflow-hidden px-8">
-          <div :key="latest.index" class="gb-flash flex flex-col items-center">
-            <div class="gb-title-kai text-8xl font-bold leading-tight text-primary">{{ latest.name }}</div>
-            <div class="mt-4 flex items-baseline gap-3">
-              <span class="text-xl text-ink-soft">礼金</span>
-              <span class="font-num text-6xl font-bold text-primary-deep">{{ latest.amountText }}</span>
-              <span class="text-xl text-ink-soft">元</span>
-            </div>
-            <div class="mt-3 text-sm text-ink-soft">{{ formatClock(latest.time) }}</div>
-          </div>
-        </div>
-        <div v-else class="flex flex-1 items-center justify-center text-2xl text-ink-soft">虚位以待 · 恭候嘉宾</div>
-
-        <!-- 滚动列表 -->
-        <div class="h-[38%] shrink-0 overflow-hidden border-t-2 border-line/70 bg-surface/40 px-8 py-4">
-          <div class="flex flex-col gap-1.5">
+        <!-- 仿古竖排礼簿格 -->
+        <div class="book-wrap flex-1 px-6 py-5">
+          <div ref="bookEl" class="book-frame">
             <div
-              v-for="(r, i) in snapshot!.records.slice(0, 12)"
-              :key="latest!.index - i + '-' + r.time"
-              class="flex items-center gap-4 rounded-lg px-4 py-2"
-              :class="i === 0 ? 'gb-pop bg-primary-soft' : ''"
+              v-for="(r, i) in bookRecords"
+              :key="latestTime + '-' + r.time + '-' + i"
+              class="book-cell"
+              :class="r.time === latestTime ? 'book-cell-latest' : ''"
+              :data-latest="r.time === latestTime"
             >
-              <span class="gb-title-kai w-36 truncate text-2xl font-bold">{{ r.name }}</span>
-              <span class="font-num ml-auto text-2xl font-semibold">{{ r.amountText }}</span>
-              <span class="w-16 text-right text-sm text-ink-soft">{{ formatClock(r.time) }}</span>
+              <div class="cell-name gb-vertical gb-title-kai">{{ displayName(r.name) }}</div>
+              <div class="cell-divider" />
+              <div class="cell-label gb-vertical gb-title-kai">贺礼</div>
+              <div class="cell-divider" />
+              <div class="cell-amount gb-vertical">{{ r.upper }}</div>
+              <div class="cell-num font-num">
+                {{ r.amountText === '***' ? '***' : '￥' + r.amountText }}
+                <span class="cell-clock">{{ formatClock(r.time) }}</span>
+              </div>
+            </div>
+            <!-- 空礼簿占位 -->
+            <div v-if="!bookRecords.length" class="flex flex-1 items-center justify-center">
+              <span class="gb-title-kai text-3xl tracking-[0.5em] text-ink-soft opacity-60">虚位以待 · 恭候嘉宾</span>
             </div>
           </div>
         </div>
@@ -160,6 +178,109 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 </template>
 
 <style scoped>
+/* ============ 仿古礼簿竖格 ============ */
+.book-wrap {
+  min-height: 0;
+}
+.book-frame {
+  display: flex;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 3px solid var(--gb-primary);
+  outline: 1px solid var(--gb-primary);
+  outline-offset: 3px;
+  background: #fff;
+  scrollbar-width: none;
+}
+.book-frame::-webkit-scrollbar {
+  display: none;
+}
+
+.book-cell {
+  position: relative;
+  flex: 0 0 auto;
+  width: clamp(120px, 11vw, 190px);
+  display: flex;
+  flex-direction: column;
+  padding: 14px 0 0;
+  border-right: 1px solid var(--gb-border);
+}
+.book-cell:last-child {
+  border-right: none;
+}
+.book-cell-latest {
+  background: var(--gb-surface);
+  animation: gb-flash 0.7s ease-out both;
+}
+
+.cell-name {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(30px, 5.4vh, 58px);
+  font-weight: 700;
+  color: var(--gb-ink);
+  letter-spacing: 0.18em;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 6px;
+  text-align: center;
+}
+
+.cell-divider {
+  height: 2px;
+  background: var(--gb-primary);
+  opacity: 0.85;
+  margin: 0 8px;
+}
+
+.cell-label {
+  flex: 0 0 auto;
+  height: clamp(52px, 12vh, 88px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(16px, 2.6vh, 26px);
+  font-weight: 700;
+  color: var(--gb-primary);
+  letter-spacing: 0.35em;
+}
+
+.cell-amount {
+  flex: 0 0 auto;
+  height: 34%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(14px, 2.2vh, 22px);
+  color: var(--gb-ink);
+  letter-spacing: 0.22em;
+  overflow: hidden;
+  padding: 0 6px;
+  text-align: center;
+}
+
+.cell-num {
+  flex: 0 0 auto;
+  height: clamp(40px, 8vh, 56px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-top: 1px solid var(--gb-border);
+  font-size: clamp(15px, 1.9vh, 20px);
+  font-weight: 600;
+  color: var(--gb-ink);
+}
+.cell-clock {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--gb-ink-soft);
+  margin-top: 1px;
+}
+
 .hint-enter-active,
 .hint-leave-active {
   transition: opacity 0.6s;

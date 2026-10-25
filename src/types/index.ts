@@ -99,7 +99,7 @@ export interface GuestBroadcast {
   snapshot?: {
     totalCount: number
     totalAmountText: string
-    records: { name: string; amountText: string; time: number }[]
+    records: { name: string; amountText: string; upper: string; time: number }[]
   }
   /** 副屏展示设置 */
   screen?: {

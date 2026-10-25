@@ -224,6 +224,7 @@ export const useLedgerStore = defineStore('ledger', () => {
     const lite = (r: LedgerRecord, isLatest: boolean) => ({
       name: privacy && !isLatest ? maskName(r.name) : r.name,
       amountText: privacy && !isLatest ? '***' : formatAmount(r.amount),
+      upper: privacy && !isLatest ? '＊＊' : toChineseAmount(r.amount),
       time: r.createdAt,
     })
     const latest = latestRecord.value
