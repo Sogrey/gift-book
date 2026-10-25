@@ -1,0 +1,223 @@
+@import 'tailwindcss';
+
+/* ===================== 双主题 CSS 变量 ===================== */
+:root,
+[data-theme='red'] {
+  --gb-primary: #b91c1c; /* 喜庆红 */
+  --gb-primary-deep: #7f1d1d;
+  --gb-primary-soft: #f3dede;
+  --gb-accent: #c9a063; /* 金 */
+  --gb-accent-soft: #f5d4ab;
+  --gb-surface: #fff7f4;
+  --gb-border: #ecc8c4;
+  --gb-bg: #faf3ef;
+  --gb-ink: #45201c;
+  --gb-ink-soft: #8a6259;
+  --gb-danger: #dc2626;
+}
+[data-theme='gray'] {
+  --gb-primary: #475569; /* 肃穆灰 */
+  --gb-primary-deep: #33415a;
+  --gb-primary-soft: #e2e6ec;
+  --gb-accent: #94a3b8;
+  --gb-accent-soft: #dbe3ea;
+  --gb-surface: #f5f6f8;
+  --gb-border: #d3d8de;
+  --gb-bg: #f2f4f6;
+  --gb-ink: #1f2937;
+  --gb-ink-soft: #6b7280;
+  --gb-danger: #7c2d2d;
+}
+
+/* ===================== Tailwind 主题 token ===================== */
+@theme {
+  --color-primary: var(--gb-primary);
+  --color-primary-deep: var(--gb-primary-deep);
+  --color-primary-soft: var(--gb-primary-soft);
+  --color-accent: var(--gb-accent);
+  --color-accent-soft: var(--gb-accent-soft);
+  --color-surface: var(--gb-surface);
+  --color-line: var(--gb-border);
+  --color-bg: var(--gb-bg);
+  --color-ink: var(--gb-ink);
+  --color-ink-soft: var(--gb-ink-soft);
+  --font-kai: 'KaiTi', 'STKaiti', '楷体', 'Noto Serif SC', serif;
+  --font-num: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+}
+
+/* ===================== 基础 ===================== */
+html,
+body {
+  height: 100%;
+}
+body {
+  background: var(--gb-bg);
+  color: var(--gb-ink);
+  font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s;
+}
+
+::selection {
+  background: var(--gb-primary);
+  color: #fff;
+}
+
+/* 滚动条 */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--gb-border);
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ===================== 通用组件类 ===================== */
+@layer components {
+  .gb-card {
+    background: #fff;
+    border: 1px solid var(--gb-border);
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.05);
+  }
+
+  .gb-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .gb-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .gb-btn-primary {
+    background: var(--gb-primary);
+    color: #fff;
+  }
+  .gb-btn-primary:hover:not(:disabled) {
+    background: var(--gb-primary-deep);
+  }
+  .gb-btn-ghost {
+    background: transparent;
+    border-color: var(--gb-border);
+    color: var(--gb-ink);
+  }
+  .gb-btn-ghost:hover:not(:disabled) {
+    background: var(--gb-primary-soft);
+  }
+  .gb-btn-danger {
+    background: transparent;
+    border-color: var(--gb-border);
+    color: var(--gb-danger);
+  }
+  .gb-btn-danger:hover:not(:disabled) {
+    background: #fee2e2;
+  }
+
+  .gb-input {
+    width: 100%;
+    border: 1px solid var(--gb-border);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    background: #fff;
+    color: var(--gb-ink);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .gb-input:focus {
+    border-color: var(--gb-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--gb-primary) 15%, transparent);
+  }
+  .gb-input::placeholder {
+    color: var(--gb-ink-soft);
+    opacity: 0.7;
+  }
+
+  .gb-label {
+    font-size: 0.8rem;
+    color: var(--gb-ink-soft);
+    margin-bottom: 0.25rem;
+    display: block;
+  }
+
+  /* 竖排文字（仿古礼簿） */
+  .gb-vertical {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    letter-spacing: 0.35em;
+  }
+
+  /* 中式标题 */
+  .gb-title-kai {
+    font-family: var(--font-kai);
+    color: var(--gb-primary);
+  }
+}
+
+/* ===================== 动画 ===================== */
+@keyframes gb-pop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.gb-pop {
+  animation: gb-pop-in 0.25s ease-out both;
+}
+
+@keyframes gb-slide-up {
+  0% {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.gb-slide-up {
+  animation: gb-slide-up 0.4s ease-out both;
+}
+
+@keyframes gb-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.gb-flash {
+  animation: gb-flash 0.6s ease-out both;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+}
