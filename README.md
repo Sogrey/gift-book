@@ -1,12 +1,12 @@
 # 电子礼簿 gift-book-vue
 
 [![CI/CD](https://github.com/Sogrey/gift-book/actions/workflows/deploy.yml/badge.svg)](https://github.com/Sogrey/gift-book/actions/workflows/deploy.yml)
-[![Deployed](https://img.shields.io/badge/GitHub-Pages-brightgreen)](https://sogrey.github.io/gift-book/)
+[![Deployed](https://img.shields.io/badge/Deploy-sogrey.top-brightgreen)](https://sogrey.top/gift-book/)
 
 > 纯本地、零后端、数据加密的红白喜事礼金管理系统
 > Vue 3 + TypeScript + Vite + Pinia + Tailwind CSS 4
 >
-> **在线体验**：https://sogrey.github.io/gift-book/ （数据仍仅存于你自己浏览器的 localStorage，服务端不经手任何数据）
+> **在线体验**：https://sogrey.top/gift-book/ （自定义域名，原始地址 https://sogrey.github.io/gift-book/ 同样可达。数据仍仅存于你自己浏览器的 localStorage，服务端不经手任何数据）
 
 无论是儿女结婚的喜宴，还是亲友离世的白事，礼金记账都绕不开。传统手写礼簿考验书写速度与细心程度，还有"记重了、算错了、丢了账本"的风险。本项目提供一个**拔网线也能用**的现代化礼簿方案：数据 100% 存储在本机浏览器、AES-256 加密落库，隐私不外泄。
 
@@ -38,7 +38,7 @@ npm run preview # 本地预览构建产物
 推送到 `main` 分支即自动触发 [GitHub Actions](.github/workflows/deploy.yml)：
 
 1. **构建与校验**：`npm ci` → `npm run build`（vue-tsc 严格类型检查，类型错误直接阻断部署）
-2. **部署**：产物自动发布到 GitHub Pages → https://sogrey.github.io/gift-book/
+2. **部署**：产物自动发布到 GitHub Pages → https://sogrey.top/gift-book/ （自定义域名，原始地址 sogrey.github.io/gift-book 同样可达）
 
 > **首次开通（仅需一次）**：GitHub 安全策略禁止 Actions 的 GITHUB_TOKEN 首次创建 Pages 站点，
 > 需手动开通一次：仓库 **Settings → Pages → Build and deployment → Source 选 `GitHub Actions`** → Save。
