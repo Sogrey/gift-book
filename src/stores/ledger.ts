@@ -2,7 +2,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import type { Channel, EventData, EventMeta, GuestBroadcast, LedgerRecord } from '@/types'
-import { deriveKey, verifyPassword, encryptWithKey, decryptWithKey, keyToHex, keyFromHex } from '@/lib/crypto'
+import { deriveKey, verifyPassword, encryptWithKey, decryptWithKey, keyToHex, keyFromHex, normalizePassword } from '@/lib/crypto'
 import type { CrossTabBus } from '@/lib/bus'
 import { bus } from '@/lib/bus'
 import { uid } from '@/lib/id'
@@ -13,8 +13,18 @@ const sessionKeyOf = (id: string) => `gb:session-key:${id}`
 
 const DEFAULT_SETTINGS: EventData['settings'] = {
   voiceEnabled: true,
-  guestPrivacy: false,
+  guestPrivacy: true,
   showQr: false,
+}
+
+/** v1→v2 迁移：v1 时代隐私模式默认 false，旧数据统一升级为默认开启。
+ *  v2 后用户手动关闭会存为显式 false，不再被动迁移。 */
+function migrateData(data: EventData): EventData {
+  if ((data as { version?: number }).version !== 2) {
+    if (data.settings && data.settings.guestPrivacy === false) data.settings.guestPrivacy = true
+    data.version = 2
+  }
+  return data
 }
 
 function maskName(name: string): string {
@@ -49,10 +59,10 @@ export const useLedgerStore = defineStore('ledger', () => {
     const payload = localStorage.getItem(dataKeyOf(meta_.id))
     let data: EventData
     if (!payload) {
-      data = { version: 1, records: [], settings: { ...DEFAULT_SETTINGS } }
+      data = { version: 2, records: [], settings: { ...DEFAULT_SETTINGS } }
     } else {
       const json = decryptWithKey(key, payload)
-      data = JSON.parse(json) as EventData
+      data = migrateData(JSON.parse(json) as EventData)
       data.settings = { ...DEFAULT_SETTINGS, ...data.settings }
     }
     meta.value = meta_
@@ -64,7 +74,7 @@ export const useLedgerStore = defineStore('ledger', () => {
   }
 
   function unlock(meta_: EventMeta, password: string): boolean {
-    const dk = deriveKey(password, meta_.salt)
+    const dk = deriveKey(normalizePassword(password), meta_.salt)
     if (!verifyPassword(dk, meta_.verifier)) return false
     loadWithKeyHex(meta_, keyToHex(dk.key))
     return true
@@ -85,7 +95,7 @@ export const useLedgerStore = defineStore('ledger', () => {
     if (!meta.value || !keyHex.value) return
     const write = () => {
       if (!meta.value || !keyHex.value) return
-      const data: EventData = { version: 1, records: records.value, settings: settings.value }
+      const data: EventData = { version: 2, records: records.value, settings: settings.value }
       try {
         const payload = encryptWithKey(JSON.stringify(data), keyFromHex(keyHex.value), meta.value.salt)
         localStorage.setItem(dataKeyOf(meta.value!.id), payload)

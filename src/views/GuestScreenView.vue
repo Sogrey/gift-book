@@ -44,8 +44,8 @@ const snapshot = computed(() => state.value?.snapshot)
 const screenCfg = computed(() => state.value?.screen)
 const isPrivacy = computed(() => !!screenCfg.value?.privacy)
 
-/** 时间顺序（旧→新），最新在右，像实时续写的礼簿 */
-const bookRecords = computed(() => [...(snapshot.value?.records ?? [])].reverse())
+/** 时间顺序（旧→新），最新在右；双份渲染实现无缝循环 */
+const loopRecords = computed(() => [...(snapshot.value?.records ?? [])].reverse())
 const latestTime = computed(() => snapshot.value?.records?.[0]?.time ?? 0)
 
 /** 传统礼簿习惯：两字姓名中间加全角空格 */
@@ -53,62 +53,90 @@ function displayName(name: string): string {
   return name.length === 2 ? `${name[0]}\u3000${name[1]}` : name
 }
 
-// 新格子出现 → 打断轮播，平滑滚动到最新一格居中展示，随后恢复轮播
+// 新格子出现 → 柔和滚动到最新一格居中（260px/s），停留 4s 后恢复单向轮播
 watch(
   () => latestTime.value,
   async () => {
     await nextTick()
-    const latest = bookEl.value?.querySelector('[data-latest="true"]')
-    latest?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
-    // 给观众 4 秒看清最新礼金，再从当前位置继续轮播（向右探索新内容）
-    carousel.pauseUntil = Date.now() + 4000
-    carousel.dir = 1
+    const el = bookEl.value
+    const latest = el?.querySelector<HTMLElement>('[data-loop="a"] [data-latest="true"]')
+    if (!el || !latest) return
+    const max = el.scrollWidth - el.clientWidth
+    const target = Math.max(0, Math.min(max, latest.offsetLeft + latest.offsetWidth / 2 - el.clientWidth / 2))
+    if (Math.abs(target - el.scrollLeft) < 8) {
+      carousel.holdUntil = performance.now() + 4000 // 已在视野内，仅停留展示
+    } else {
+      carousel.softTarget = target
+    }
   },
 )
 
-/* ============ 自动慢速横向轮播（ping-pong） ============ */
+/* ============ 单向无缝循环轮播 ============
+ *  内容渲染两份（a/b 拼接），滚过一份宽度即回卷 —— 视觉无缝、方向恒定（从右往左流动）。
+ *  时间驱动：位置 = 基点 + 经过时间 × 速度，帧率波动不影响平滑度（修复逐帧增量的卡顿）。
+ */
 const carousel = {
-  speed: 48, // px/秒，一格约 4 秒
-  dir: 1,
-  pauseUntil: 0,
-  acc: 0, // 浮点累加器：scrollLeft 写入被浏览器取整到整像素，
-  // 增量不足 1px 会被吞掉，故累计到整数像素才步进
+  speed: 48, // 常速 px/s（一格约 4 秒）
+  softSpeed: 260, // 新礼金定位滚动 px/s
+  basePos: 0,
+  baseTs: 0,
+  softTarget: null as number | null,
+  holdUntil: 0,
   rafId: 0,
-  lastTs: 0,
 }
 
-function carouselTick(ts: number) {
+/** 一份循环内容的宽度（px） */
+function loopWidth(): number {
+  const el = bookEl.value
+  const a = el?.querySelector<HTMLElement>('[data-loop="a"]')
+  if (!el || !a) return 0
+  return a.offsetLeft + a.offsetWidth
+}
+
+function syncBase(pos: number) {
+  carousel.basePos = pos
+  carousel.baseTs = performance.now()
+}
+
+function carouselTick() {
   carousel.rafId = requestAnimationFrame(carouselTick)
   const el = bookEl.value
   if (!el) return
-  const dt = ts - carousel.lastTs
-  carousel.lastTs = ts
-  const max = el.scrollWidth - el.clientWidth
-  if (max <= 4 || dt <= 0 || Date.now() < carousel.pauseUntil || document.hidden) {
-    carousel.acc = 0
+  const W = loopWidth()
+  if (!W || el.scrollWidth <= el.clientWidth + 4) return // 内容不满一屏：静停展示全部
+  const now = performance.now()
+  if (document.hidden) {
+    syncBase(el.scrollLeft)
     return
   }
-  carousel.acc += carousel.dir * carousel.speed * dt * 0.001
-  if (Math.abs(carousel.acc) < 1) return
-  const step = Math.trunc(carousel.acc)
-  carousel.acc -= step
-  let next = Math.round(el.scrollLeft) + step
-  if (next >= max) {
-    next = max
-    carousel.dir = -1
-    carousel.pauseUntil = Date.now() + 2500 // 右端点停 2.5s 反向
-    carousel.acc = 0
-  } else if (next <= 0) {
-    next = 0
-    carousel.dir = 1
-    carousel.pauseUntil = Date.now() + 2500 // 左端点停 2.5s 反向
-    carousel.acc = 0
+
+  // 阶段一：柔和滚向新礼金
+  if (carousel.softTarget !== null) {
+    const elapsed = (now - carousel.baseTs) / 1000
+    const dist = carousel.softTarget - carousel.basePos
+    let p = carousel.basePos + Math.sign(dist) * carousel.softSpeed * elapsed
+    if (Math.sign(carousel.softTarget - p) !== Math.sign(dist)) {
+      p = carousel.softTarget
+      carousel.softTarget = null
+      carousel.holdUntil = now + 4000 // 到达后停留 4s 展示最新礼金
+    }
+    syncBase(p)
+    el.scrollLeft = Math.floor(p)
+    return
   }
-  el.scrollLeft = next
+
+  // 阶段二：新礼金停留期
+  if (now < carousel.holdUntil) return
+
+  // 阶段三：常速单向循环
+  let pos = carousel.basePos + ((now - carousel.baseTs) / 1000) * carousel.speed
+  while (pos >= W) pos -= W // 无缝回卷
+  el.scrollLeft = Math.floor(pos)
+  syncBase(pos)
 }
 
 function startCarousel() {
-  carousel.lastTs = performance.now()
+  syncBase(bookEl.value?.scrollLeft ?? 0)
   carousel.rafId = requestAnimationFrame(carouselTick)
 }
 
@@ -186,31 +214,51 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           </div>
         </div>
 
-        <!-- 仿古竖排礼簿格 -->
-        <div class="book-wrap flex-1 px-6 py-5">
+        <!-- 仿古竖排礼簿格（内容渲染两份实现无缝循环轮播） -->
+        <div v-if="loopRecords.length" class="book-wrap flex-1 px-6 py-5">
           <div ref="bookEl" class="book-frame">
-            <div
-              v-for="(r, i) in bookRecords"
-              :key="latestTime + '-' + r.time + '-' + i"
-              class="book-cell"
-              :class="r.time === latestTime ? 'book-cell-latest' : ''"
-              :data-latest="r.time === latestTime"
-            >
-              <div class="cell-name gb-vertical gb-title-kai">{{ displayName(r.name) }}</div>
-              <div class="cell-divider" />
-              <div class="cell-label gb-vertical gb-title-kai">贺礼</div>
-              <div class="cell-divider" />
-              <div class="cell-amount gb-vertical">{{ r.upper }}</div>
-              <div class="cell-num font-num">
-                {{ r.amountText === '***' ? '***' : '￥' + r.amountText }}
-                <span class="cell-clock">{{ formatClock(r.time) }}</span>
+            <div class="book-loop" data-loop="a">
+              <div
+                v-for="(r, i) in loopRecords"
+                :key="'a' + latestTime + '-' + r.time + '-' + i"
+                class="book-cell"
+                :class="r.time === latestTime ? 'book-cell-latest' : ''"
+                :data-latest="r.time === latestTime"
+              >
+                <div class="cell-name gb-vertical gb-title-kai">{{ displayName(r.name) }}</div>
+                <div class="cell-divider" />
+                <div class="cell-label gb-vertical gb-title-kai">贺礼</div>
+                <div class="cell-divider" />
+                <div class="cell-amount gb-vertical">{{ r.upper }}</div>
+                <div class="cell-num font-num">
+                  {{ r.amountText === '***' ? '***' : '￥' + r.amountText }}
+                  <span class="cell-clock">{{ formatClock(r.time) }}</span>
+                </div>
               </div>
             </div>
-            <!-- 空礼簿占位 -->
-            <div v-if="!bookRecords.length" class="flex flex-1 items-center justify-center">
-              <span class="gb-title-kai text-3xl tracking-[0.5em] text-ink-soft opacity-60">虚位以待 · 恭候嘉宾</span>
+            <div class="book-loop" data-loop="b" aria-hidden="true">
+              <div
+                v-for="(r, i) in loopRecords"
+                :key="'b' + latestTime + '-' + r.time + '-' + i"
+                class="book-cell"
+                :class="r.time === latestTime ? 'book-cell-latest' : ''"
+              >
+                <div class="cell-name gb-vertical gb-title-kai">{{ displayName(r.name) }}</div>
+                <div class="cell-divider" />
+                <div class="cell-label gb-vertical gb-title-kai">贺礼</div>
+                <div class="cell-divider" />
+                <div class="cell-amount gb-vertical">{{ r.upper }}</div>
+                <div class="cell-num font-num">
+                  {{ r.amountText === '***' ? '***' : '￥' + r.amountText }}
+                  <span class="cell-clock">{{ formatClock(r.time) }}</span>
+                </div>
+              </div>
             </div>
           </div>
+        </div>
+        <!-- 空礼簿占位 -->
+        <div v-else class="flex flex-1 items-center justify-center">
+          <span class="gb-title-kai text-3xl tracking-[0.5em] text-ink-soft opacity-60">虚位以待 · 恭候嘉宾</span>
         </div>
       </template>
 
@@ -241,6 +289,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 .book-frame {
   display: flex;
+  position: relative; /* cells 的 offsetParent，offsetLeft 不受滚动影响 */
   height: 100%;
   overflow-x: auto;
   overflow-y: hidden;
@@ -252,6 +301,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 .book-frame::-webkit-scrollbar {
   display: none;
+}
+.book-loop {
+  display: flex;
+  flex: 0 0 auto;
+  height: 100%;
 }
 
 .book-cell {

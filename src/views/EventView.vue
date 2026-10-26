@@ -9,6 +9,7 @@ import QuickEntry from '@/components/QuickEntry.vue'
 import LedgerTable from '@/components/LedgerTable.vue'
 import StatsPanel from '@/components/StatsPanel.vue'
 import ArchivePanel from '@/components/ArchivePanel.vue'
+import PasswordInput from '@/components/PasswordInput.vue'
 import { formatAmount, formatClock } from '@/lib/amount'
 
 const route = useRoute()
@@ -28,9 +29,10 @@ let disposers: (() => void)[] = []
 
 onMounted(() => {
   if (!meta.value) return
-  if (ledger.tryResume(meta.value)) return
+  // 跨页签同步与副屏应答始终绑定（store handler 在未解锁时自行安全跳过）
   disposers.push(ledger.bindCrossTabSync(meta.value))
   disposers.push(ledger.bindGuestHello())
+  if (ledger.tryResume(meta.value)) ledger.broadcast() // 恢复解锁 → 立即广播给等待中的副屏
 })
 
 onUnmounted(() => {
@@ -56,8 +58,7 @@ function tryUnlock() {
   if (!meta.value) return
   if (!password.value) return
   if (ledger.unlock(meta.value, password.value)) {
-    disposers.push(ledger.bindCrossTabSync(meta.value))
-    disposers.push(ledger.bindGuestHello())
+    ledger.broadcast() // 解锁即广播：先打开的等待中副屏立即上屏
   } else {
     unlockError.value = '密码不正确'
   }
@@ -100,13 +101,7 @@ const kindText = computed(() => (meta.value?.kind === 'white' ? '白事' : '红�
       <h1 class="gb-title-kai text-2xl font-bold">{{ meta.name }}</h1>
       <p class="mt-1 text-xs text-ink-soft">{{ kindText }} · {{ meta.date ?? '' }}</p>
       <p class="mt-4 text-sm text-ink-soft">数据已加密，请输入管理密码解锁</p>
-      <input
-        v-model="password"
-        type="password"
-        class="gb-input mt-2 text-center"
-        placeholder="管理密码"
-        @keydown.enter.prevent="tryUnlock"
-      />
+      <PasswordInput v-model="password" class="mt-2" reveal-note @enter="tryUnlock" />
       <p v-if="unlockError" class="mt-1 text-sm text-red-600">{{ unlockError }}</p>
       <button class="gb-btn gb-btn-primary mt-3 w-full" @click="tryUnlock">解锁</button>
       <button class="gb-btn gb-btn-ghost mt-2 w-full" @click="router.push('/')">← 返回</button>

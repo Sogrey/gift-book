@@ -14,6 +14,18 @@ const PBKDF2_ITERATIONS = 210_000
 const KEY_SIZE = 256 / 32 // words
 const VERIFIER_PLAINTEXT = 'gift-book-vue::verifier::v1'
 
+/**
+ * 密码规范化：全角数字/字母/符号 → 半角，去首尾空白。
+ * 中文输入法下容易把“１２３４”当“1234”输入且密码框里肉眼不可辨，
+ * 创建与解锁两侧统一规范化可彻底避免该类误输。
+ */
+export function normalizePassword(pw: string): string {
+  return pw
+    .replace(/[\uFF01-\uFF5E]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/\u3000/g, ' ')
+    .trim()
+}
+
 export interface DerivedKey {
   key: CryptoJS.lib.WordArray
   saltHex: string

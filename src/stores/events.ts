@@ -2,7 +2,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { EventMeta } from '@/types'
-import { randomSalt, deriveKey, makeVerifier, keyToHex } from '@/lib/crypto'
+import { randomSalt, deriveKey, makeVerifier, keyToHex, normalizePassword } from '@/lib/crypto'
 import { uid } from '@/lib/id'
 
 const EVENTS_KEY = 'gb:events'
@@ -34,7 +34,7 @@ export const useEventsStore = defineStore('events', () => {
     password: string
   }): { event: EventMeta; sessionKeyHex: string } {
     const salt = randomSalt()
-    const dk = deriveKey(input.password, salt)
+    const dk = deriveKey(normalizePassword(input.password), salt)
     const event: EventMeta = {
       id: uid('ev'),
       name: input.name.trim(),

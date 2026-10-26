@@ -5,6 +5,8 @@ import { useRouter } from 'vue-router'
 import type { BackupFile, EventKind } from '@/types'
 import { useEventsStore } from '@/stores/events'
 import { useUiStore } from '@/stores/ui'
+import { normalizePassword } from '@/lib/crypto'
+import PasswordInput from '@/components/PasswordInput.vue'
 
 const router = useRouter()
 const events = useEventsStore()
@@ -32,9 +34,10 @@ function today() {
 
 function submitCreate() {
   const f = form.value
+  const pw = normalizePassword(f.password)
   if (!f.name.trim()) return ui.toast('请填写事项名称', 'warn')
-  if (f.password.length < 4) return ui.toast('管理密码至少 4 位', 'warn')
-  if (f.password !== f.password2) return ui.toast('两次密码不一致', 'warn')
+  if (pw.length < 4) return ui.toast('管理密码至少 4 位', 'warn')
+  if (pw !== normalizePassword(f.password2)) return ui.toast('两次密码不一致', 'warn')
   creating.value = true
   setTimeout(() => {
     try {
@@ -42,7 +45,7 @@ function submitCreate() {
         name: f.name,
         kind: f.kind,
         date: f.date || undefined,
-        password: f.password,
+        password: pw,
       })
       // 创建成功即解锁，本会话免重输密码
       sessionStorage.setItem(`gb:session-key:${event.id}`, sessionKeyHex)
@@ -211,11 +214,11 @@ function fmtDate(ts: number) {
         <div class="mt-4 grid grid-cols-2 gap-3">
           <div>
             <label class="gb-label" for="ev-pw">管理密码</label>
-            <input id="ev-pw" v-model="form.password" type="password" class="gb-input" placeholder="至少 4 位" />
+            <PasswordInput id="ev-pw" v-model="form.password" placeholder="至少 4 位" reveal-note />
           </div>
           <div>
             <label class="gb-label" for="ev-pw2">确认密码</label>
-            <input id="ev-pw2" v-model="form.password2" type="password" class="gb-input" @keydown.enter.prevent="submitCreate" />
+            <PasswordInput id="ev-pw2" v-model="form.password2" reveal-note @enter="submitCreate" />
           </div>
         </div>
         <p class="mt-2 text-xs text-ink-soft">

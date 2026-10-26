@@ -117,18 +117,20 @@ const rekeyForm = ref({ oldPw: '', newPw: '', newPw2: '' })
 async function doRekey() {
   if (!ledger.meta || !ledger.keyHex) return
   const f = rekeyForm.value
-  if (f.newPw.length < 4) return ui.toast('新密码至少 4 位', 'warn')
-  if (f.newPw !== f.newPw2) return ui.toast('两次新密码不一致', 'warn')
+  const { deriveKey, verifyPassword, keyToHex, normalizePassword } = await import('@/lib/crypto')
+  const oldPw = normalizePassword(f.oldPw)
+  const newPw = normalizePassword(f.newPw)
+  if (newPw.length < 4) return ui.toast('新密码至少 4 位', 'warn')
+  if (newPw !== normalizePassword(f.newPw2)) return ui.toast('两次新密码不一致', 'warn')
   // 校验旧密码
-  const { deriveKey, verifyPassword, keyToHex } = await import('@/lib/crypto')
-  const dk = deriveKey(f.oldPw, ledger.meta.salt)
+  const dk = deriveKey(oldPw, ledger.meta.salt)
   if (!verifyPassword(dk, ledger.meta.verifier)) return ui.toast('原密码不正确', 'error')
   busy.value = 'rekey'
   try {
     const dataJson = decryptWithKey(keyFromHex(ledger.keyHex), localStorage.getItem(`gb:data:${ledger.meta.id}`)!)
     const { makeVerifier, randomSalt } = await import('@/lib/crypto')
     const salt = randomSalt()
-    const ndk = deriveKey(f.newPw, salt)
+    const ndk = deriveKey(newPw, salt)
     const newPayload = encryptWithKey(dataJson, ndk.key, salt)
     localStorage.setItem(`gb:data:${ledger.meta.id}`, newPayload)
     // 更新 meta（salt/verifier）
@@ -142,7 +144,7 @@ async function doRekey() {
     }
     const hex = keyToHex(ndk.key)
     sessionStorage.setItem(`gb:session-key:${ledger.meta.id}`, hex)
-    ledger.unlock(events.getEvent(ledger.meta.id)!, f.newPw)
+    ledger.unlock(events.getEvent(ledger.meta.id)!, newPw)
     showRekey.value = false
     ui.toast('管理密码已修改', 'success')
   } finally {

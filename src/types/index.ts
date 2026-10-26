@@ -48,7 +48,8 @@ export interface EventMeta {
 
 /** 事项内加密存储的数据体 */
 export interface EventData {
-  version: 1
+  /** 数据版本：2（v1→v2 迁移：隐私模式默认开启） */
+  version: 2
   records: LedgerRecord[]
   settings: EventSettings
 }
