@@ -6,6 +6,7 @@ import { useRoute } from 'vue-router'
 import type { GuestBroadcast } from '@/types'
 import { bus } from '@/lib/bus'
 import { formatClock } from '@/lib/amount'
+import { useUiStore } from '@/stores/ui'
 
 const route = useRoute()
 const eventId = computed(() => String(route.params.id))
@@ -155,13 +156,35 @@ function stopCarousel() {
   cancelAnimationFrame(carousel.rafId)
 }
 
+const ui = useUiStore()
+
 function toggleFullscreen() {
-  if (document.fullscreenElement) {
-    document.exitFullscreen()
-  } else {
-    document.documentElement.requestFullscreen().catch(() => {})
+  const root = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }
+  try {
+    if (document.fullscreenElement || (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement) {
+      document.exitFullscreen?.() ?? (document as Document & { webkitExitFullscreen?: () => void }).webkitExitFullscreen?.()
+    } else {
+      const req = root.requestFullscreen?.bind(root) ?? root.webkitRequestFullscreen?.bind(root)
+      if (!req) {
+        ui.toast('当前环境不支持全屏 API，请按 F11', 'warn', 4000)
+        return
+      }
+      Promise.resolve(req()).catch((err: unknown) => {
+        console.error('全屏失败:', err)
+        ui.toast('全屏失败：' + (err as Error)?.message + '，可按 F11 浏览器全屏', 'warn', 5000)
+      })
+    }
+  } catch (err) {
+    console.error('全屏切换异常:', err)
+    ui.toast('全屏切换异常，请按 F11', 'warn', 4000)
   }
 }
+const isFullscreen = ref(false)
+function syncFullscreenState() {
+  isFullscreen.value = !!(document.fullscreenElement || (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement)
+}
+onMounted(() => document.addEventListener('fullscreenchange', syncFullscreenState))
+onUnmounted(() => document.removeEventListener('fullscreenchange', syncFullscreenState))
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'F11') {
@@ -278,10 +301,10 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
       <!-- 全屏按钮 + 提示 -->
       <button
         class="fixed right-4 top-4 z-50 rounded-lg bg-white/80 px-3 py-2 text-lg text-ink-soft shadow hover:text-primary"
-        title="全屏 / 退出全屏（F11）"
+        :title="isFullscreen ? '退出全屏（F11）' : '全屏（F11）'"
         @click="toggleFullscreen"
       >
-        ⛶
+        {{ isFullscreen ? '⤢' : '⛶' }}
       </button>
       <Transition name="hint">
         <div
