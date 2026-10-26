@@ -23,9 +23,13 @@ onMounted(() => {
   })
   bus.emit('ledger.hello', { eventId: eventId.value })
   setTimeout(() => (fullscreenHintVisible.value = false), 6000)
+  startCarousel()
 })
 
-onUnmounted(() => dispose?.())
+onUnmounted(() => {
+  dispose?.()
+  stopCarousel()
+})
 
 // 主题跟随事项类型
 watch(
@@ -49,15 +53,68 @@ function displayName(name: string): string {
   return name.length === 2 ? `${name[0]}\u3000${name[1]}` : name
 }
 
-// 新格子出现 → 平滑滚动跟随到最新一格
+// 新格子出现 → 打断轮播，平滑滚动到最新一格居中展示，随后恢复轮播
 watch(
   () => latestTime.value,
   async () => {
     await nextTick()
     const latest = bookEl.value?.querySelector('[data-latest="true"]')
     latest?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+    // 给观众 4 秒看清最新礼金，再从当前位置继续轮播（向右探索新内容）
+    carousel.pauseUntil = Date.now() + 4000
+    carousel.dir = 1
   },
 )
+
+/* ============ 自动慢速横向轮播（ping-pong） ============ */
+const carousel = {
+  speed: 48, // px/秒，一格约 4 秒
+  dir: 1,
+  pauseUntil: 0,
+  acc: 0, // 浮点累加器：scrollLeft 写入被浏览器取整到整像素，
+  // 增量不足 1px 会被吞掉，故累计到整数像素才步进
+  rafId: 0,
+  lastTs: 0,
+}
+
+function carouselTick(ts: number) {
+  carousel.rafId = requestAnimationFrame(carouselTick)
+  const el = bookEl.value
+  if (!el) return
+  const dt = ts - carousel.lastTs
+  carousel.lastTs = ts
+  const max = el.scrollWidth - el.clientWidth
+  if (max <= 4 || dt <= 0 || Date.now() < carousel.pauseUntil || document.hidden) {
+    carousel.acc = 0
+    return
+  }
+  carousel.acc += carousel.dir * carousel.speed * dt * 0.001
+  if (Math.abs(carousel.acc) < 1) return
+  const step = Math.trunc(carousel.acc)
+  carousel.acc -= step
+  let next = Math.round(el.scrollLeft) + step
+  if (next >= max) {
+    next = max
+    carousel.dir = -1
+    carousel.pauseUntil = Date.now() + 2500 // 右端点停 2.5s 反向
+    carousel.acc = 0
+  } else if (next <= 0) {
+    next = 0
+    carousel.dir = 1
+    carousel.pauseUntil = Date.now() + 2500 // 左端点停 2.5s 反向
+    carousel.acc = 0
+  }
+  el.scrollLeft = next
+}
+
+function startCarousel() {
+  carousel.lastTs = performance.now()
+  carousel.rafId = requestAnimationFrame(carouselTick)
+}
+
+function stopCarousel() {
+  cancelAnimationFrame(carousel.rafId)
+}
 
 function toggleFullscreen() {
   if (document.fullscreenElement) {
